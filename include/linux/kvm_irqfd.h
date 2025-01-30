@@ -61,4 +61,8 @@ struct kvm_kernel_irqfd {
 	struct irq_bypass_producer *producer;
 };
 
+struct kvm_kernel_irqfd *kvm_arch_irqfd_alloc(void);
+void kvm_arch_irqfd_free(struct kvm_kernel_irqfd *irqfd);
+int kvm_arch_irqfd_init(struct kvm_kernel_irqfd *irqfd);
+
 #endif /* __LINUX_KVM_IRQFD_H */
