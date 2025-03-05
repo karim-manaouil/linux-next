@@ -17,9 +17,25 @@ menuconfig VIRTUALIZATION
 
 if VIRTUALIZATION
 
+###################### Gunyah-based KVM ######################
+menuconfig KVM
+	bool "Kernel-based Virtual Machine (KVM) under Gunyah"
+	depends on GUNYAH
+	select KVM_COMMON
+	select KVM_GENERIC_MMU_NOTIFIER
+	select KVM_MMIO
+	select HAVE_KVM_IRQCHIP
+	select HAVE_KVM_READONLY_MEM
+
+###################### Native ARM KVM ######################
+config KVM_ARM
+	bool
+	depends on !GUNYAH
+
 menuconfig KVM
 	bool "Kernel-based Virtual Machine (KVM) support"
-	depends on AS_HAS_ARMV8_4
+	depends on !GUNYAH && AS_HAS_ARMV8_4
+	select KVM_ARM
 	select KVM_COMMON
 	select KVM_GENERIC_HARDWARE_ENABLING
 	select KVM_GENERIC_MMU_NOTIFIER
@@ -42,6 +58,8 @@ menuconfig KVM
 	  Support hosting virtualized guest machines.
 
 	  If unsure, say N.
+
+if KVM_ARM
 
 config NVHE_EL2_DEBUG
 	bool "Debug mode for non-VHE EL2 object"
@@ -82,5 +100,5 @@ config PTDUMP_STAGE2_DEBUGFS
 	  kernel.
 
 	  If in doubt, say N.
-
+endif # KVM_ARM
 endif # VIRTUALIZATION
