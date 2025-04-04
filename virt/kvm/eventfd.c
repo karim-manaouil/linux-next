@@ -56,6 +56,26 @@ kvm_arch_irqfd_allowed(struct kvm *kvm, struct kvm_irqfd *args)
 	return true;
 }
 
+int __attribute__((weak))
+kvm_set_irq(struct kvm *kvm, int irq_source_id, u32 irq, int level,
+		bool line_status)
+{
+	return -ENXIO;
+}
+
+int __attribute__((weak))
+kvm_irq_map_gsi(struct kvm *kvm,
+		struct kvm_kernel_irq_routing_entry *entries, int gsi)
+{
+	return 0;
+}
+
+int __attribute__((weak))
+kvm_irq_map_chip_pin(struct kvm *kvm, unsigned irqchip, unsigned pin)
+{
+	return -1;
+}
+
 static void
 irqfd_inject(struct work_struct *work)
 {
