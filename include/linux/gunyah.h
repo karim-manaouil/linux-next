@@ -11,6 +11,12 @@
 #include <linux/interrupt.h>
 #include <linux/limits.h>
 #include <linux/types.h>
+#include <linux/kvm_host.h>
+
+#include <linux/gunyah_rsc_mgr.h>
+
+#define kvm_to_gunyah(kvm_ptr) \
+	container_of(kvm_ptr, struct gunyah_vm, kvm)
 
 /* Matches resource manager's resource types for VM_GET_HYP_RESOURCES RPC */
 enum gunyah_resource_type {
@@ -29,6 +35,32 @@ struct gunyah_resource {
 	enum gunyah_resource_type type;
 	u64 capid;
 	unsigned int irq;
+};
+
+/**
+ * struct gunyah_vm - Main representation of a Gunyah Virtual machine
+                              memory shared with the guest.
+ * @vmid: Gunyah's VMID for this virtual machine
+ * @kvm: kvm instance for this VM
+ * @rm: Pointer to the resource manager struct to make RM calls
+ * @nb: Notifier block for RM notifications
+ * @vm_status: Current state of the VM, as last reported by RM
+ * @vm_status_wait: Wait queue for status @vm_status changes
+ * @status_lock: Serializing state transitions
+ * @auth: Authentication mechanism to be used by resource manager when
+ *        launching the VM
+ */
+struct gunyah_vm {
+	u16 vmid;
+	struct kvm kvm;
+	struct gunyah_rm *rm;
+
+	struct notifier_block nb;
+	enum gunyah_rm_vm_status vm_status;
+	wait_queue_head_t vm_status_wait;
+	struct rw_semaphore status_lock;
+
+	enum gunyah_rm_vm_auth_mechanism auth;
 };
 
 /******************************************************************************/

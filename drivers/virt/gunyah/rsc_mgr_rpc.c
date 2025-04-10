@@ -3,8 +3,8 @@
  * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
+#include <linux/slab.h>
 #include <linux/error-injection.h>
-
 #include <linux/gunyah_rsc_mgr.h>
 
 /* Message IDs: VM Management */
