@@ -16,8 +16,15 @@
 
 #include <linux/gunyah_rsc_mgr.h>
 
+#define gunyah_vcpu(kvm_vcpu_ptr) \
+	container_of(kvm_vcpu_ptr, struct gunyah_vcpu, kvm_vcpu)
+
 #define kvm_to_gunyah(kvm_ptr) \
 	container_of(kvm_ptr, struct gunyah_vm, kvm)
+
+#define GUNYAH_STATE(kvm_vcpu)							\
+	struct gunyah_vm __maybe_unused *ghvm = kvm_to_gunyah(kvm_vcpu->kvm);	\
+	struct gunyah_vcpu __maybe_unused *ghvcpu = gunyah_vcpu(kvm_vcpu)
 
 struct gunyah_vm;
 
@@ -89,6 +96,7 @@ struct gunyah_vm_resource_ticket {
  */
 struct gunyah_vm {
 	u16 vmid;
+	bool started;
 	struct kvm kvm;
 	struct gunyah_rm *rm;
 	struct notifier_block nb;
@@ -99,6 +107,49 @@ struct gunyah_vm {
 	struct list_head resources;
 	struct list_head resource_tickets;
 	enum gunyah_rm_vm_auth_mechanism auth;
+};
+
+/**
+ * struct gunyah_vcpu - Track an instance of gunyah vCPU
+ * @kvm_vcpu: kvm instance
+ * @rsc: Pointer to the Gunyah vCPU resource, will be NULL until VM starts
+ * @lock: One userspace thread at a time should run the vCPU
+ * @ghvm: Pointer to the main VM struct; quicker look up than going through
+ *        @f->ghvm
+ * @state: Our copy of the state of the vCPU, since userspace could trick
+ *         kernel to behave incorrectly if we relied on @vcpu_run
+ * @ready: if vCPU goes to sleep, hypervisor reports to us that it's sleeping
+ *         and will signal interrupt (from @rsc) when it's time to wake up.
+ *         This completion signals that we can run vCPU again.
+ * @nb: When VM exits, the status of VM is reported via @vcpu_run->status.
+ *      We need to track overall VM status, and the nb gives us the updates from
+ *      Resource Manager.
+ * @ticket: resource ticket to claim vCPU# for the VM
+ */
+struct gunyah_vcpu {
+	struct kvm_vcpu kvm_vcpu;
+	struct gunyah_resource *rsc;
+	struct mutex lock;
+	struct gunyah_vm *ghvm;
+
+	/**
+	 * Track why the vcpu_run hypercall returned. This mirrors the vcpu_run
+	 * structure shared with userspace, except is used internally to avoid
+	 * trusting userspace to not modify the vcpu_run structure.
+	 */
+	enum {
+		GUNYAH_VCPU_RUN_STATE_UNKNOWN = 0,
+		GUNYAH_VCPU_RUN_STATE_READY,
+		GUNYAH_VCPU_RUN_STATE_MMIO_READ,
+		GUNYAH_VCPU_RUN_STATE_MMIO_WRITE,
+		GUNYAH_VCPU_RUN_STATE_SYSTEM_DOWN,
+	} state;
+
+	bool immediate_exit;
+	struct completion ready;
+
+	struct notifier_block nb;
+	struct gunyah_vm_resource_ticket ticket;
 };
 
 /******************************************************************************/
