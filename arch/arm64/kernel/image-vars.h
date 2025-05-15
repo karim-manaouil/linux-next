@@ -72,7 +72,7 @@ PROVIDE(__pi__data                	= _data);
 PROVIDE(__pi___bss_start		= __bss_start);
 PROVIDE(__pi__end			= _end);
 
-#ifdef CONFIG_KVM
+#ifdef CONFIG_KVM_ARM
 
 /*
  * KVM nVHE code has its own symbol namespace prefixed with __kvm_nvhe_, to

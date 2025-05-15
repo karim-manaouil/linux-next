@@ -32,10 +32,48 @@
 
 static struct workqueue_struct *irqfd_cleanup_wq;
 
+struct kvm_kernel_irqfd __attribute__((weak))
+*kvm_arch_irqfd_alloc(void)
+{
+	return kzalloc(sizeof(struct kvm_kernel_irqfd), GFP_KERNEL_ACCOUNT);
+}
+
+void __attribute__((weak))
+kvm_arch_irqfd_free(struct kvm_kernel_irqfd *irqfd)
+{
+	kfree(irqfd);
+}
+
+int __attribute__((weak))
+kvm_arch_irqfd_init(struct kvm_kernel_irqfd *irqfd)
+{
+	return 0;
+}
+
 bool __attribute__((weak))
 kvm_arch_irqfd_allowed(struct kvm *kvm, struct kvm_irqfd *args)
 {
 	return true;
+}
+
+int __attribute__((weak))
+kvm_set_irq(struct kvm *kvm, int irq_source_id, u32 irq, int level,
+		bool line_status)
+{
+	return -ENXIO;
+}
+
+int __attribute__((weak))
+kvm_irq_map_gsi(struct kvm *kvm,
+		struct kvm_kernel_irq_routing_entry *entries, int gsi)
+{
+	return 0;
+}
+
+int __attribute__((weak))
+kvm_irq_map_chip_pin(struct kvm *kvm, unsigned irqchip, unsigned pin)
+{
+	return -1;
 }
 
 static void
@@ -44,6 +82,11 @@ irqfd_inject(struct work_struct *work)
 	struct kvm_kernel_irqfd *irqfd =
 		container_of(work, struct kvm_kernel_irqfd, inject);
 	struct kvm *kvm = irqfd->kvm;
+
+	if (irqfd->set_irq) {
+		irqfd->set_irq(irqfd);
+		return;
+	}
 
 	if (!irqfd->resampler) {
 		kvm_set_irq(kvm, KVM_USERSPACE_IRQ_SOURCE_ID, irqfd->gsi, 1,
@@ -153,7 +196,7 @@ irqfd_shutdown(struct work_struct *work)
 	irq_bypass_unregister_consumer(&irqfd->consumer);
 #endif
 	eventfd_ctx_put(irqfd->eventfd);
-	kfree(irqfd);
+	kvm_arch_irqfd_free(irqfd);
 }
 
 
@@ -315,7 +358,7 @@ kvm_irqfd_assign(struct kvm *kvm, struct kvm_irqfd *args)
 	if (!kvm_arch_irqfd_allowed(kvm, args))
 		return -EINVAL;
 
-	irqfd = kzalloc(sizeof(*irqfd), GFP_KERNEL_ACCOUNT);
+	irqfd = kvm_arch_irqfd_alloc();
 	if (!irqfd)
 		return -ENOMEM;
 
@@ -396,6 +439,13 @@ kvm_irqfd_assign(struct kvm *kvm, struct kvm_irqfd *args)
 	init_waitqueue_func_entry(&irqfd->wait, irqfd_wakeup);
 	init_poll_funcptr(&irqfd->pt, irqfd_ptable_queue_proc);
 
+	/*
+	 * Give a chance to archiectures to finish initilization.
+	 * E.g. Gunyah needs to register a resource ticket for this irq.
+	 */
+	if (kvm_arch_irqfd_init(irqfd))
+		goto fail;
+
 	spin_lock_irq(&kvm->irqfds.lock);
 
 	ret = 0;
@@ -452,7 +502,7 @@ fail:
 		eventfd_ctx_put(eventfd);
 
 out:
-	kfree(irqfd);
+	kvm_arch_irqfd_free(irqfd);
 	return ret;
 }
 

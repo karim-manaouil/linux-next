@@ -8,12 +8,14 @@ ccflags-y += -I $(src)
 include $(srctree)/virt/kvm/Makefile.kvm
 
 obj-$(CONFIG_KVM) += kvm.o
-obj-$(CONFIG_KVM) += hyp/
+obj-$(CONFIG_KVM_ARM) += hyp/
 
 CFLAGS_sys_regs.o += -Wno-override-init
 CFLAGS_handle_exit.o += -Wno-override-init
 
-kvm-y += arm.o mmu.o mmio.o psci.o hypercalls.o pvtime.o \
+kvm-$(CONFIG_GUNYAH) += gunyah.o
+
+kvm-$(CONFIG_KVM_ARM) += arm.o mmu.o mmio.o psci.o hypercalls.o pvtime.o \
 	 inject_fault.o va_layout.o handle_exit.o \
 	 guest.o debug.o reset.o sys_regs.o stacktrace.o \
 	 vgic-sys-reg-v3.o fpsimd.o pkvm.o \
@@ -25,9 +27,11 @@ kvm-y += arm.o mmu.o mmio.o psci.o hypercalls.o pvtime.o \
 	 vgic/vgic-mmio-v3.o vgic/vgic-kvm-device.o \
 	 vgic/vgic-its.o vgic/vgic-debug.o vgic/vgic-v3-nested.o
 
-kvm-$(CONFIG_HW_PERF_EVENTS)  += pmu-emul.o pmu.o
-kvm-$(CONFIG_ARM64_PTR_AUTH)  += pauth.o
-kvm-$(CONFIG_PTDUMP_STAGE2_DEBUGFS) += ptdump.o
+ifeq ($(CONFIG_KVM_ARM),y)
+	kvm-$(CONFIG_HW_PERF_EVENTS)  += pmu-emul.o pmu.o
+	kvm-$(CONFIG_ARM64_PTR_AUTH)  += pauth.o
+	kvm-$(CONFIG_PTDUMP_STAGE2_DEBUGFS) += ptdump.o
+endif
 
 always-y := hyp_constants.h hyp-constants.s
 

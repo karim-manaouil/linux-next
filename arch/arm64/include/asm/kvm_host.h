@@ -229,6 +229,9 @@ struct kvm_s2_mmu {
 };
 
 struct kvm_arch_memory_slot {
+#ifdef CONFIG_GUNYAH
+	struct page **pages;
+#endif
 };
 
 /**
@@ -1417,7 +1420,7 @@ static inline bool kvm_pmu_counter_deferred(struct perf_event_attr *attr)
 	return (!has_vhe() && attr->exclude_host);
 }
 
-#ifdef CONFIG_KVM
+#ifdef CONFIG_KVM_ARM
 void kvm_set_pmu_events(u64 set, struct perf_event_attr *attr);
 void kvm_clr_pmu_events(u64 clr);
 bool kvm_set_pmuserenr(u64 val);
@@ -1587,5 +1590,10 @@ void kvm_set_vm_id_reg(struct kvm *kvm, u32 reg, u64 val);
 
 #define kvm_has_s1poe(k)				\
 	(kvm_has_feat((k), ID_AA64MMFR3_EL1, S1POE, IMP))
+
+#ifndef CONFIG_KVM_ARM
+#define __KVM_HAVE_ARCH_VM_FREE
+void kvm_arch_free_vm(struct kvm *kvm);
+#endif
 
 #endif /* __ARM64_KVM_HOST_H__ */
